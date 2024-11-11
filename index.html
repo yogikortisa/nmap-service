@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link
+      href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="app" class="h-screen flex flex-center items-center justify-center">
+      <div v-if="!job_id" class="w-full max-w-sm">
+        <h1 class="text-xl font-bold">Port Scan</h1>
+        <div class="flex items-center border-b border-teal-500 py-2">
+          <input
+            class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none"
+            type="text"
+            v-model="host"
+            placeholder="example.com"
+          />
+          <button
+            class="flex-shrink-0 bg-teal-500 hover:bg-teal-700 border-teal-500 hover:border-teal-700 text-sm border-4 text-white py-1 px-2 rounded"
+            type="button"
+            :disabled="loading"
+            @click="scan"
+          >
+            Scan Host
+          </button>
+        </div>
+      </div>
+      <div v-else class="w-full max-w-sm">
+        <h1 class="text-xl font-bold">{{host}}</h1>
+        <div v-if="job_result?.result">
+          <div v-for="host in job_result.result" class="my-5">
+            <p>{{host?.runtime?.summary}}</p>
+            <ul>
+              <template v-for="port in host?.ports">
+                <li v-if="port?.state=='open'">
+                  {{port.protocol}}:{{port.portid}}
+                </li>
+              </template>
+            </ul>
+          </div>
+
+          <button
+            class="flex-shrink-0 bg-teal-500 hover:bg-teal-700 border-teal-500 hover:border-teal-700 text-sm border-4 text-white py-1 px-2 rounded"
+            type="button"
+            :disabled="loading"
+            @click="job_id=undefined"
+          >
+            Back
+          </button>
+        </div>
+        <div v-else>{{status}}</div>
+      </div>
+    </div>
+
+    <script>
+      const { createApp, ref } = Vue;
+
+      createApp({
+        setup() {
+          const job_id = ref(null);
+          const host = ref("127.0.0.1");
+          const loading = ref(false);
+          const job_result = ref(undefined);
+          const status = ref("");
+
+          const scan = () => {
+            loading.value = true;
+
+            fetch("/job", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ip: host.value }),
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                loading.value = false;
+                console.log(data); // JSON data parsed by `data.json()` call
+                job_id.value = data.job_id;
+                job_loop(data.job_id);
+              });
+          };
+
+          const job_loop = (job_id) => {
+            fetch(`/job/${job_id}`)
+              .then((response) => response.json())
+              .then((data) => {
+                job_result.value = data;
+                status.value = data.status;
+                if (data.status != "finished" && data.status != "failed") {
+                  setTimeout(() => job_loop(job_id), 1000);
+                }
+              });
+          };
+
+          return {
+            host,
+            loading,
+            job_id,
+            job_result,
+            scan,
+            status,
+          };
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
