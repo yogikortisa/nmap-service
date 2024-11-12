@@ -1,5 +1,5 @@
 # Nmap-as-a-service
-Nmap service using Redis to implement a worker that waits for scanning jobs requested.
+Nmap service using Flask & Redis to implement a worker that waits for scanning jobs requested.
 
 # Installation
 ```shell
